@@ -42,7 +42,7 @@ function get(data, idHeaderName, log, existingObject) {
         
         nextValue = nextValue || ''
         
-        if (nextValue instanceof Date) {
+        if (nextValue instanceof Date || isISODateString_(nextValue)) {
           nextValue = new Date(nextValue)
         }
         
@@ -60,7 +60,7 @@ function get(data, idHeaderName, log, existingObject) {
               'Updating [%s][%s] from "%s" to "%s"', 
               id, 
               nextHeader, 
-              existingValue, 
+              existingValue.toString(), 
               nextValue)
           }
         }
@@ -270,3 +270,12 @@ function normalizeHeaders_(headers) {
   } // normalizeHeader()
   
 } // normalizeHeaders_()
+
+function isISODateString_(dateString) {
+  if (typeof dateString !== 'string') {return false}
+  // E.g. 2020-01-01T12:43:26.000Z
+  var regex = /20\d{2}(-|\/)((0[1-9])|(1[0-2]))(-|\/)((0[1-9])|([1-2][0-9])|(3[0-1]))(T|\s)(([0-1][0-9])|(2[0-3])):([0-5][0-9]):([0-5][0-9]).([0-9][0-9][0-9])(Z)/
+  var result = dateString.match(regex)
+  return (result !== null && result.length === 18)
+}
+
