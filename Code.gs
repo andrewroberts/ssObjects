@@ -4,9 +4,76 @@
 
 // SsObjects.gs
 // ============
-//
-// This is from an old GAS tutorial "Reading spreadsheet data using 
-// JavaScript Objects", since removed from the Google website.
+
+/**
+* Convert table of data, with the headers in the first row
+* into an object
+*
+* @params {array} data
+* @params {string} idHeaderName
+* @params {object} log - Logging service
+* @params {object} existingObject [OPTIONAL]
+*
+* @return {object} data converted to an object
+*/
+
+function get(data, idHeaderName, log, existingObject) { 
+  
+  var objects = (existingObject === undefined) ? {} : existingObject    
+  var headers = data.shift()
+  
+  data.forEach(function(row) {
+    
+    var id = null
+    
+    row.forEach(function(nextValue, index) {
+      
+      var nextHeader = headers[index]
+      
+      if (nextHeader === idHeaderName) {
+        
+        id = nextValue
+        
+        if (objects[id] === undefined) {          
+          objects[id] = {}                
+        }
+        
+      } else {
+        
+        nextValue = nextValue || ''
+        
+        if (nextValue instanceof Date) {
+          nextValue = new Date(nextValue)
+        }
+        
+        if (!id) {
+          throw new Error('No ID "' + idHeaderName + '" found for this object yet')
+        }
+        
+        if (objects[id][nextHeader] !== undefined) {
+          
+          var existingValue = objects[id][nextHeader]
+          
+          if (existingValue != nextValue) {
+            
+            log.warning(
+              'Updating [%s][%s] from "%s" to "%s"', 
+              id, 
+              nextHeader, 
+              existingValue, 
+              nextValue)
+          }
+        }
+        
+        objects[id][nextHeader] = nextValue
+      }       
+      
+    }) // for each cell
+    
+  }) // for each row
+  
+  return objects     
+}
 
 // TODO - Update style for library
 
