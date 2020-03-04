@@ -129,6 +129,7 @@ function addArrayToObject(config) {
  *   {string} id - header used for id 
  *   {object} objects
  *   {array}  data - first row is headers [OPTIONAL]
+ *   {object} log - logging service [OPTIONAL]
  *
  * @return {object} data converted to an object
  */
@@ -138,7 +139,8 @@ function addObjectsToArray(config) {
   var idHeaderName = config.id || (function() {throw new Error('No ID header')})()
   var objects = config.objects || (function() {throw new Error('No objects')})()
   var data = config.data || []
-    
+  var log = config.log || {fine: function() {}}
+
   var headers = getHeaders()
   
   if (headers.indexOf(idHeaderName) === -1) {
@@ -154,11 +156,11 @@ function addObjectsToArray(config) {
     if (!objects.hasOwnProperty(id)) {continue}    
     var nextRow = getEmptyRow()
     nextRow[0] = id
-    var nextobject = objects[id]
+    var nextObject = objects[id]
     
-    for (var header in nextobject) {
-      if (!nextobject.hasOwnProperty(header)) {continue}
-      nextRow[headerOffsets[header]] = nextobject[header]
+    for (var header in nextObject) {
+      if (!nextObject.hasOwnProperty(header)) {continue}
+      nextRow[headerOffsets[header]] = nextObject[header]
     }
     
     data.push(nextRow)
