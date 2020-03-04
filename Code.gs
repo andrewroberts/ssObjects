@@ -35,6 +35,7 @@
  *   {array} data - first row is headers
  *   {string} id - header used for id 
  *   {object} objects [OPTIONAL]
+ *   {object} log - logging service [OPTIONAL]
  *
  * @return {object} data converted to an object
  */
@@ -44,6 +45,7 @@ function addArrayToObject(config) {
   var data = config.data || (function() {throw new Error('No data')})()
   var idHeaderName = config.id || (function() {throw new Error('No ID header')})()
   var objects = config.objects || {}
+  var log = config.log || {warning: function() {}}
     
   var headers = data.shift()
   
@@ -81,7 +83,7 @@ function addArrayToObject(config) {
           
           if (existingValue != nextValue) {
             
-            throw new Error(
+            log.warning(
               'Updating [%s][%s] from "%s" to "%s"', 
               id, 
               nextHeader, 
