@@ -5,21 +5,46 @@
 // SsObjects.gs
 // ============
 
-/**
-* Convert table of data, with the headers in the first row
-* into an object
-*
-* @params {array} data
-* @params {string} idHeaderName
-* @params {object} log - Logging service
-* @params {object} existingObject [OPTIONAL]
-*
-* @return {object} data converted to an object
-*/
+// Test Sheet: https://docs.google.com/spreadsheets/d/1tAYu2STTAebhwq67LArlsVH5k1QmIMPmOxuqI7HYWrY/edit#gid=0
 
-function get(data, idHeaderName, log, existingObject) { 
-  
-  var objects = (existingObject === undefined) ? {} : existingObject    
+/**
+ * Convert table of data, with the headers in the first row
+ * into an object, or add to an existing object:
+ *
+ *
+ * [
+ *   [id_header,     header2,     header3, ...],
+ *   [row1_id_value, row1_value2, row1_value3, ...],
+ *   [row2_id_value, row2_value2, row2_value3, ...],
+ * }
+ * 
+ * =>
+ *
+ * {
+ *   row1_id_value: {
+ *     [header2]: row1_value2,
+ *     [header3]: row1_value3
+ *   }, 
+ *   row2_id_value: {
+ *     [header2]: row2_value2,
+ *     [header3]: row2_value3
+ *   },    
+ * }
+ *
+ * @param {object} 
+ *   {array} data - first row is headers
+ *   {string} id - header used for id 
+ *   {object} objects [OPTIONAL]
+ *
+ * @return {object} data converted to an object
+ */
+
+function addArrayToObject(config) {
+
+  var data = config.data || (function() {throw new Error('No data')})()
+  var idHeaderName = config.id || (function() {throw new Error('No ID header')})()
+  var objects = config.objects || {}
+    
   var headers = data.shift()
   
   data.forEach(function(row) {
@@ -28,7 +53,7 @@ function get(data, idHeaderName, log, existingObject) {
     
     row.forEach(function(nextValue, index) {
       
-      var nextHeader = headers[index]
+      var nextHeader = headers[index].trim()
       
       if (nextHeader === idHeaderName) {
         
@@ -56,7 +81,7 @@ function get(data, idHeaderName, log, existingObject) {
           
           if (existingValue != nextValue) {
             
-            log.warning(
+            throw new Error(
               'Updating [%s][%s] from "%s" to "%s"', 
               id, 
               nextHeader, 
@@ -74,6 +99,108 @@ function get(data, idHeaderName, log, existingObject) {
   
   return objects     
 }
+
+/**
+ * Convert an object into a 2D table of data, with the headers in the first row,
+ * or add to an existing table:
+ *
+ * {
+ *   row1_id_value: {
+ *     [header2]: row1_value2,
+ *     [header3]: row1_value3
+ *   }, 
+ *   row2_id_value: {
+ *     [header2]: row2_value2,
+ *     [header3]: row2_value3
+ *   },    
+ * }
+ *
+ * => 
+ *
+ * [
+ *   [id_header,     header2,     header3, ...],
+ *   [row1_id_value, row1_value2, row1_value3, ...],
+ *   [row2_id_value, row2_value2, row2_value3, ...],
+ * }
+ *
+ * @param {object} 
+ *   {string} id - header used for id 
+ *   {object} objects
+ *   {array}  data - first row is headers [OPTIONAL]
+ *
+ * @return {object} data converted to an object
+ */
+
+function addObjectsToArray(config) {
+
+  var idHeaderName = config.id || (function() {throw new Error('No ID header')})()
+  var objects = config.objects || (function() {throw new Error('No objects')})()
+  var data = config.data || []
+    
+  var headers = getHeaders()
+  
+  if (headers.indexOf(idHeaderName) === -1) {
+    throw new Error('ID header not found')
+  }
+  
+  if (data.length === 0) {data.push(headers)}
+  var numberOfColumns = headers.length
+  var headerOffsets = getHeaderOffsets()
+  
+  for (var id in objects) {
+  
+    if (!objects.hasOwnProperty(id)) {continue}    
+    var nextRow = getEmptyRow()
+    nextRow[0] = id
+    var nextobject = objects[id]
+    
+    for (var header in nextobject) {
+      if (!nextobject.hasOwnProperty(header)) {continue}
+      nextRow[headerOffsets[header]] = nextobject[header]
+    }
+    
+    data.push(nextRow)
+  }
+  
+  return data
+  
+  // Private Functions
+  // -----------------
+
+  function getEmptyRow() {
+    var row = []
+    for (var i = 0; i < numberOfColumns; i++) {row[i] = ''}
+    return row
+  }
+
+  function getHeaders() {
+
+    if (data.length > 0) {return data[0]}
+    var headers = [idHeaderName]
+    var exampleObject = objects[Object.keys(objects)[0]]
+
+    for (var header in exampleObject) {
+      if (!exampleObject.hasOwnProperty(header)) {continue}
+      headers.push(header)
+    }
+
+    return headers
+
+  } // SsObjects.addObjectsToArray.getHeaders()
+
+  function getHeaderOffsets() {
+    
+    var offsets = {}
+    
+    headers.forEach(function(header, index) {
+      offsets[header.trim()] = index
+    })
+    
+    return offsets
+    
+  } // SsObjects.addObjectsToArray.getHeaderOffsets()
+    
+} // SsObjects.addObjectsToArray() 
 
 // TODO - Update style for library
 
