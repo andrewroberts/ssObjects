@@ -47,9 +47,9 @@ function addArrayToObject(config) {
   var objects = config.objects || {}
   var log = config.log || {warning: function() {}}
     
-  var headers = data.shift()
+  var headers = data[0]
   
-  data.forEach(function(row) {
+  data.slice(1).forEach(function(row) {
     
     var id = null
     
