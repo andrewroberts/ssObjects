@@ -8,6 +8,25 @@
 // Test Sheet: https://docs.google.com/spreadsheets/d/1tAYu2STTAebhwq67LArlsVH5k1QmIMPmOxuqI7HYWrY/edit#gid=0
 
 /**
+ * @params {Sheet} sheet
+ * @params {array} data - including the header
+ */
+
+function clearAndSet(sheet, data) {
+  
+  if (data.length < 1) {return}
+  data.shift() // Remove the headers
+  var numberOfRows = sheet.getLastRow()
+  
+  if (numberOfRows > 1) {
+    sheet.getRange(2, 1, numberOfRows - 1, sheet.getLastColumn()).clearContent()
+  }
+  
+  sheet.getRange(2, 1, data.length, data[0].length).setValues(data)
+  
+} // clearAndSet()
+
+/**
  * Convert table of data, with the headers in the first row
  * into an object, or add to an existing object:
  *
