@@ -7,6 +7,10 @@
 
 // Test Sheet: https://docs.google.com/spreadsheets/d/1tAYu2STTAebhwq67LArlsVH5k1QmIMPmOxuqI7HYWrY/edit#gid=0
 
+function isArray(value) {
+  return (typeof value === 'object' && Object.prototype.toString.call(value) === '[object Array]')
+}  
+
 /**
  * @params {Sheet} sheet
  * @params {array} data - including the header
@@ -28,23 +32,25 @@ function clearAndSet(sheet, data) {
 
 /**
  * Convert table of data, with the headers in the first row
- * into an object, or add to an existing object:
+ * into an object, or add to an existing object. Note how if there are 
+ * mulitple rows with the same ID the new values are stored in an array
  *
  *
  * [
- *   [id_header,     header2,     header3, ...],
- *   [row1_id_value, row1_value2, row1_value3, ...],
- *   [row2_id_value, row2_value2, row2_value3, ...],
+ *   [id_header, header2,     header3, ...],
+ *   [id1,       row1_value2, row1_value3, ...],
+ *   [id2,       row2_value2, row2_value3, ...],
+ *   [id1,       row3_value2, row3_value3, ...],
  * }
  * 
  * =>
  *
  * {
- *   row1_id_value: {
- *     [header2]: row1_value2,
+ *   id1: {
+ *     [header2]: [row1_value2, row3_value2],
  *     [header3]: row1_value3
  *   }, 
- *   row2_id_value: {
+ *   id2: {
  *     [header2]: row2_value2,
  *     [header3]: row2_value3
  *   },    
@@ -54,7 +60,6 @@ function clearAndSet(sheet, data) {
  *   {array} data - first row is headers
  *   {string} id - header used for id 
  *   {object} objects [OPTIONAL]
- *   {object} log - logging service [OPTIONAL]
  *
  * @return {object} data converted to an object
  */
@@ -64,7 +69,6 @@ function addArrayToObject(config) {
   var data = config.data || (function() {throw new Error('No data')})()
   var idHeaderName = config.id || (function() {throw new Error('No ID header')})()
   var objects = config.objects || {}
-  var log = config.log || {warning: function() {}}
     
   var headers = data[0]
   
@@ -78,59 +82,68 @@ function addArrayToObject(config) {
       
       if (nextHeader === idHeaderName) {
         
-        id = nextValue
+        if (!id) {
         
-        if (objects[id] === undefined) {          
-          objects[id] = {}                
+          id = nextValue
+          
+          if (objects[id] === undefined) {          
+            objects[id] = {}                
+          }
         }
         
       } else {
-        
+
+        if (!id) {
+          throw new Error('No ID "' + idHeaderName + '" found for this object yet')
+        }
+
         nextValue = nextValue || ''
         
         if (nextValue instanceof Date || isISODateString_(nextValue)) {
           nextValue = new Date(nextValue)
         }
+                
+        if (objects[id][nextHeader] === undefined) {
+
+          objects[id][nextHeader] = nextValue
         
-        if (!id) {
-          throw new Error('No ID "' + idHeaderName + '" found for this object yet')
-        }
-        
-        if (objects[id][nextHeader] !== undefined) {
+        } else {
           
           var existingValue = objects[id][nextHeader]
           
-          if (existingValue != nextValue) {
+          if (isArray(existingValue)) {
+          
+            if (existingValue.length === 1) {throw new Error('Array field with only one value')}
+          
+            objects[id][nextHeader].push(nextValue)
             
-            log.warning(
-              'Updating [%s][%s] from "%s" to "%s"', 
-              id, 
-              nextHeader, 
-              existingValue.toString(), 
-              nextValue)
-          }
-        }
-        
-        objects[id][nextHeader] = nextValue
+          } else {          
+          
+            if (nextValue !== '') {
+              objects[id][nextHeader] = [existingValue, nextValue]
+            }
+          }          
+        }        
       }       
       
     }) // for each cell
     
   }) // for each row
   
-  return objects     
-}
+  return objects  
+  
+} // SsObjects.addArrayToObject()
 
 /**
  * Convert an object into a 2D table of data, with the headers in the first row,
  * or add to an existing table:
  *
  * {
- *   row1_id_value: {
+ *   id1: {
  *     [header2]: row1_value2,
- *     [header3]: row1_value3
+ *     [header3]: [row1_value3, row3_value3]
  *   }, 
- *   row2_id_value: {
+ *   id2: {
  *     [header2]: row2_value2,
  *     [header3]: row2_value3
  *   },    
@@ -139,16 +152,16 @@ function addArrayToObject(config) {
  * => 
  *
  * [
- *   [id_header,     header2,     header3, ...],
- *   [row1_id_value, row1_value2, row1_value3, ...],
- *   [row2_id_value, row2_value2, row2_value3, ...],
+ *   [id_header, header2,     header3, ...],
+ *   [id1,       row1_value2, row1_value3, ...],
+ *   [id1,       row1_value2, row3_value3, ...], 
+ *   [id2,       row2_value2, row2_value3, ...],
  * }
  *
  * @param {object} 
  *   {string} id - header used for id 
  *   {object} objects
  *   {array}  data - first row is headers [OPTIONAL]
- *   {object} log - logging service [OPTIONAL]
  *
  * @return {object} data converted to an object
  */
@@ -158,7 +171,6 @@ function addObjectsToArray(config) {
   var idHeaderName = config.id || (function() {throw new Error('No ID header')})()
   var objects = config.objects || (function() {throw new Error('No objects')})()
   var data = config.data || []
-  var log = config.log || {fine: function() {}}
 
   var headers = getHeaders()
   
@@ -170,25 +182,57 @@ function addObjectsToArray(config) {
   var numberOfColumns = headers.length
   var headerOffsets = getHeaderOffsets()
   
+  // {3:{b:[4,5],c:1}}
+  
+  // [['a','b','c'],[3,4,1],[3,5,1]]
+  
   for (var id in objects) {
   
-    if (!objects.hasOwnProperty(id)) {continue}    
-    var nextRow = getEmptyRow()
-    nextRow[0] = id
+    if (!objects.hasOwnProperty(id)) {continue}
+    id = getId(id)    
     var nextObject = objects[id]
+    var numberOfRows = getMaximumValueLength(nextObject) // 2
+
+    for (var rowIndex = 0; rowIndex < numberOfRows; rowIndex++) {
+
+      var nextRow = getEmptyRow() // ['','','']
+      nextRow[headerOffsets[idHeaderName]] = id // [3,'','']
+
+      for (var header in nextObject) {    
+      
+        if (!nextObject.hasOwnProperty(header)) {continue}
+        var nextValue = nextObject[header]
+        nextValue = (isArray(nextValue)) ? (nextValue[rowIndex] || '') : nextValue 
+        nextRow[headerOffsets[header]] = nextValue // [3,4,1]
+        
+      } // for each header in a row
+      
+      data.push(nextRow)
+      
+    } // for each row in the longest value array
     
-    for (var header in nextObject) {
-      if (!nextObject.hasOwnProperty(header)) {continue}
-      nextRow[headerOffsets[header]] = nextObject[header]
-    }
-    
-    data.push(nextRow)
-  }
+  } // for each ID
   
   return data
   
   // Private Functions
   // -----------------
+
+  /**
+   * Some values are arrays, get the length of the longest one
+   */
+
+  function getMaximumValueLength(object) {
+    var maxLength = 1
+    for (var header in object) {
+      if (!nextObject.hasOwnProperty(header)) {continue}
+      var nextValue = object[header]
+      if (isArray(nextValue)) {
+        maxLength = (nextValue.length > maxLength) ? nextValue.length : maxLength
+      }
+    }
+    return maxLength
+  }
 
   function getEmptyRow() {
     var row = []
@@ -222,7 +266,32 @@ function addObjectsToArray(config) {
     return offsets
     
   } // SsObjects.addObjectsToArray.getHeaderOffsets()
+
+  function getId(oldId) {
     
+    if (typeof oldId === 'number') {
+    
+      return oldId
+      
+    } else if (typeof oldId === 'string') {     
+    
+      // Number only works if the whole string is a number, parseInt would 
+      // stop once it found non-numeric chars, i.e. oldId may start with a number
+      // but contain alphabetic chars
+      newId = Number(oldId) 
+      
+      if (newId !== newId) {// isNan
+        return oldId
+      } else {
+        return newId
+      }
+      
+    } else {
+      throw new Error('ID must be a string or number')
+    }
+    
+  } // SsObjects.addObjectsToArray.getId()
+
 } // SsObjects.addObjectsToArray() 
 
 // TODO - Update style for library
@@ -238,6 +307,10 @@ function addObjectsToArray(config) {
 //   - optFirstDataRowIndex: index of the first row where data should be written. This
 //     defaults to the row immediately below the headers.
 
+// Originally taken from the Google sample code: 
+//
+//   https://script.google.com/d/Mg33xUQ0v-ffAw4kUGPlXVXHAGDwXQ1CH/edit?usp=drive_web
+
 function setRowsData (sheet, objects, optHeadersRange, optFirstDataRowIndex) {
   
   var headersRange = optHeadersRange || sheet.getRange(1, 1, 1, sheet.getMaxColumns());
@@ -247,13 +320,17 @@ function setRowsData (sheet, objects, optHeadersRange, optFirstDataRowIndex) {
   var data = [];
   
   for (var i = 0; i < objects.length; ++i) {
-    var values = []
+  
+    var values = [];
+    
     for (j = 0; j < headers.length; ++j) {
       var header = headers[j];
       values.push(header.length > 0 && objects[i][header] ? objects[i][header] : "");
     }
+    
     data.push(values);
   }
+  
   var destinationRange = sheet.getRange(firstDataRowIndex, headersRange.getColumnIndex(), 
                                         objects.length, headers.length);
   destinationRange.setValues(data);
@@ -271,6 +348,10 @@ function setRowsData (sheet, objects, optHeadersRange, optFirstDataRowIndex) {
 //   - dontNormalizeHeaders: optional Boolean, defaults to normalize 
 //
 // Returns an Array of objects.
+
+// Originally taken from the Google sample code: 
+//
+//   https://script.google.com/d/Mg33xUQ0v-ffAw4kUGPlXVXHAGDwXQ1CH/edit?usp=drive_web
 
 function getRowsData(sheet, range, columnHeadersRowIndex, dontNormalizeHeaders) {
   
@@ -428,4 +509,3 @@ function isISODateString_(dateString) {
   var result = dateString.match(regex)
   return (result !== null && result.length === 18)
 }
-
