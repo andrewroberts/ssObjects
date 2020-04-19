@@ -6,6 +6,8 @@
 // ============
 
 // Test Sheet: https://docs.google.com/spreadsheets/d/1tAYu2STTAebhwq67LArlsVH5k1QmIMPmOxuqI7HYWrY/edit#gid=0
+//
+// Apps Script Library ID: 1DT5SFzl-QLOINuA-Gg2FL9SbqNDE30HA5z4Rn9yeSbpKxMMq8uPhqZQi
 
 function isArray(value) {
   return (typeof value === 'object' && Object.prototype.toString.call(value) === '[object Array]')
